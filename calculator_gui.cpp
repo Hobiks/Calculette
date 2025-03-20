@@ -1,8 +1,8 @@
 #include <QApplication>
+#include <QWidget>
 #include <QPushButton>
 #include <QLineEdit>
 #include <QVBoxLayout>
-#include <QWidget>
 #include <QGridLayout>
 
 class Calculator : public QWidget {
@@ -16,70 +16,68 @@ private slots:
 
 private:
     QLineEdit *display;
-    QString currentOperation;
-    double firstNumber;
+    double currentResult;
+    QString pendingOperation;
 };
 
-Calculator::Calculator(QWidget *parent) : QWidget(parent) {
-    QVBoxLayout *mainLayout = new QVBoxLayout;
-    display = new QLineEdit;
-    mainLayout->addWidget(display);
+Calculator::Calculator(QWidget *parent) : QWidget(parent), currentResult(0) {
+    display = new QLineEdit(this);
+    display->setReadOnly(true);
 
-    QGridLayout *gridLayout = new QGridLayout;
+    QGridLayout *grid = new QGridLayout(this);
 
-    // Create buttons for digits
-    for (int i = 0; i < 10; ++i) {
-        QPushButton *button = new QPushButton(QString::number(i));
+    QStringList buttons = {
+        "7", "8", "9", "/",
+        "4", "5", "6", "*",
+        "1", "2", "3", "-",
+        "0", "C", "=", "+"
+    };
+
+    int pos = 0;
+    for (const QString &buttonText : buttons) {
+        QPushButton *button = new QPushButton(buttonText, this);
+        grid->addWidget(button, pos / 4, pos % 4);
         connect(button, &QPushButton::clicked, this, &Calculator::onButtonClicked);
-        gridLayout->addWidget(button, i / 3, i % 3);
+        pos++;
     }
 
-    // Create buttons for operations
-    QStringList operations = { "+", "-", "*", "/", "=" };
-    for (const QString &operation : operations) {
-        QPushButton *button = new QPushButton(operation);
-        connect(button, &QPushButton::clicked, this, &Calculator::onButtonClicked);
-        gridLayout->addWidget(button, 3, operations.indexOf(operation));
-    }
-
-    mainLayout->addLayout(gridLayout);
-    setLayout(mainLayout);
-
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->addWidget(display);
+    layout->addLayout(grid);
+    setLayout(layout);
     setWindowTitle("Calculator");
 }
 
 void Calculator::onButtonClicked() {
     QPushButton *button = qobject_cast<QPushButton *>(sender());
-    if (button) {
-        QString buttonText = button->text();
-        if (buttonText == "=") {
-            double secondNumber = display->text().toDouble();
-            double result = 0;
+    QString buttonText = button->text();
 
-            if (currentOperation == "+") {
-                result = firstNumber + secondNumber;
-            } else if (currentOperation == "-") {
-                result = firstNumber - secondNumber;
-            } else if (currentOperation == "*") {
-                result = firstNumber * secondNumber;
-            } else if (currentOperation == "/") {
-                if (secondNumber != 0) {
-                    result = firstNumber / secondNumber;
-                } else {
-                    display->setText("Error");
-                    return;
-                }
-            }
-            display->setText(QString::number(result));
-            currentOperation.clear();
+    if (buttonText == "C") {
+        display->clear();
+        currentResult = 0;
+        pendingOperation.clear();
+    } else if (buttonText == "=") {
+        if (!pendingOperation.isEmpty()) {
+            double operand = display->text().toDouble();
+            if (pendingOperation == "+") currentResult += operand;
+            else if (pendingOperation == "-") currentResult -= operand;
+            else if (pendingOperation == "*") currentResult *= operand;
+            else if (pendingOperation == "/") currentResult /= operand;
+            display->setText(QString::number(currentResult));
+            pendingOperation.clear();
+        }
+    } else {
+        if (buttonText == "+" || buttonText == "-" || buttonText == "*" || buttonText == "/") {
+            double operand = display->text().toDouble();
+            if (pendingOperation.isEmpty()) currentResult = operand;
+            else if (pendingOperation == "+") currentResult += operand;
+            else if (pendingOperation == "-") currentResult -= operand;
+            else if (pendingOperation == "*") currentResult *= operand;
+            else if (pendingOperation == "/") currentResult /= operand;
+            pendingOperation = buttonText;
+            display->clear();
         } else {
-            if (buttonText == "+" || buttonText == "-" || buttonText == "*" || buttonText == "/") {
-                firstNumber = display->text().toDouble();
-                currentOperation = buttonText;
-                display->clear();
-            } else {
-                display->setText(display->text() + buttonText);
-            }
+            display->setText(display->text() + buttonText);
         }
     }
 }
@@ -87,10 +85,7 @@ void Calculator::onButtonClicked() {
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     Calculator calculator;
-    calculator.resize(400, 300);
+    calculator.resize(250, 200);
     calculator.show();
-    
     return app.exec();
 }
-
-#include "main.moc"
